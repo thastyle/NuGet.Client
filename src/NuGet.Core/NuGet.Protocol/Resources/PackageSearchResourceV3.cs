@@ -2,9 +2,11 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 using NuGet.Protocol.Core.Types;
 
 namespace NuGet.Protocol
@@ -21,17 +23,76 @@ namespace NuGet.Protocol
 
         public override async Task<IEnumerable<IPackageSearchMetadata>> SearchAsync(string searchTerm, SearchFilter filter, int skip, int take, Common.ILogger log, CancellationToken cancellationToken)
         {
-            var searchResultJsonObjects = await _rawSearchResource.Search(searchTerm, filter, skip, take, Common.NullLogger.Instance, cancellationToken);
+            var searchResultMetadata = await _rawSearchResource.Search(
+                (httpSource, uri) => httpSource.ProcessStreamAsync(
+                    new HttpSourceRequest(uri, Common.NullLogger.Instance),
+                    s => ProgressStreamAsync(s, cancellationToken),
+                    log,
+                    cancellationToken),
+                searchTerm,
+                filter,
+                skip,
+                take);
 
             var metadataCache = new MetadataReferenceCache();
 
-            var searchResults = searchResultJsonObjects
-                .Select(s => s.FromJToken<PackageSearchMetadata>())
+            var searchResults = searchResultMetadata
                 .Select(m => m.WithVersions(() => GetVersions(m, filter)))
                 .Select(m => metadataCache.GetObject((PackageSearchMetadataBuilder.ClonedPackageSearchMetadata) m))
                 .ToArray();
 
             return searchResults;
+        }
+
+        private static async Task<IEnumerable<PackageSearchMetadata>> ProgressStreamAsync(
+            Stream stream,
+            CancellationToken token)
+        {
+            // TODO: test
+            // - what if the JSON is not an object at the root
+            // - what if "data" is an object? or a scalar?
+
+            var output = Enumerable.Empty<PackageSearchMetadata>();
+            using (var seekableStream = await stream.AsSeekableStreamAsync(token))
+            using (var streamReader = new StreamReader(seekableStream))
+            using (var jsonTextReader = new JsonTextReader(streamReader))
+            {
+                Assert(jsonTextReader.Read(), "No JSON found.");
+                Assert(jsonTextReader.TokenType == JsonToken.StartObject, "Expected a JSON object.");
+                Assert(jsonTextReader.Read(), "Expected JSON after the start object");
+
+                var dataFound = false;
+                while (!dataFound && jsonTextReader.TokenType != JsonToken.EndObject)
+                {
+                    Assert(jsonTextReader.TokenType == JsonToken.PropertyName, "No property name found.");
+                    dataFound = "data".Equals(jsonTextReader.Value);
+                    if (dataFound)
+                    {
+                        Assert(jsonTextReader.Read(), "No JSON found.");
+                        if (jsonTextReader.TokenType != JsonToken.StartArray)
+                        {
+                            break;
+                        }
+                        output = JsonExtensions.JsonObjectSerializer.Deserialize<List<PackageSearchMetadata>>(jsonTextReader);
+                        Assert(jsonTextReader.TokenType == JsonToken.EndArray, "Expected end of JSON array.");
+                    }
+                    else
+                    {
+                        jsonTextReader.Skip();
+                        Assert(jsonTextReader.Read(), "No JSON found.");
+                    }
+                }
+
+                return output;
+            }
+        }
+
+        private static void Assert(bool value, string message)
+        {
+            if (!value)
+            {
+                throw new JsonSerializationException(message);
+            }
         }
 
         private static IEnumerable<VersionInfo> GetVersions(PackageSearchMetadata metadata, SearchFilter filter)
