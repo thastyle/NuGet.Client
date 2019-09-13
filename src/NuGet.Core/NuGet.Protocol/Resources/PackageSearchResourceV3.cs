@@ -48,50 +48,12 @@ namespace NuGet.Protocol
             Stream stream,
             CancellationToken token)
         {
-            // TODO: test
-            // - what if the JSON is not an object at the root
-            // - what if "data" is an object? or a scalar?
-
-            var output = Enumerable.Empty<PackageSearchMetadata>();
             using (var seekableStream = await stream.AsSeekableStreamAsync(token))
             using (var streamReader = new StreamReader(seekableStream))
             using (var jsonTextReader = new JsonTextReader(streamReader))
             {
-                Assert(jsonTextReader.Read(), "No JSON found.");
-                Assert(jsonTextReader.TokenType == JsonToken.StartObject, "Expected a JSON object.");
-                Assert(jsonTextReader.Read(), "Expected JSON after the start object");
-
-                var dataFound = false;
-                while (!dataFound && jsonTextReader.TokenType != JsonToken.EndObject)
-                {
-                    Assert(jsonTextReader.TokenType == JsonToken.PropertyName, "No property name found.");
-                    dataFound = "data".Equals(jsonTextReader.Value);
-                    if (dataFound)
-                    {
-                        Assert(jsonTextReader.Read(), "No JSON found.");
-                        if (jsonTextReader.TokenType != JsonToken.StartArray)
-                        {
-                            break;
-                        }
-                        output = JsonExtensions.JsonObjectSerializer.Deserialize<List<PackageSearchMetadata>>(jsonTextReader);
-                        Assert(jsonTextReader.TokenType == JsonToken.EndArray, "Expected end of JSON array.");
-                    }
-                    else
-                    {
-                        jsonTextReader.Skip();
-                        Assert(jsonTextReader.Read(), "No JSON found.");
-                    }
-                }
-
-                return output;
-            }
-        }
-
-        private static void Assert(bool value, string message)
-        {
-            if (!value)
-            {
-                throw new JsonSerializationException(message);
+                var response = JsonExtensions.JsonObjectSerializer.Deserialize<V3SearchResponse>(jsonTextReader);
+                return response.Data ?? Enumerable.Empty<PackageSearchMetadata>();
             }
         }
 
@@ -111,6 +73,12 @@ namespace NuGet.Protocol
                 .ToArray();
 
             return versions;
+        }
+
+        private class V3SearchResponse
+        {
+            [JsonProperty("data")]
+            public List<PackageSearchMetadata> Data { get; set; }
         }
     }
 }
