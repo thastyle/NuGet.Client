@@ -11,13 +11,13 @@ using Test.Utility;
 
 namespace Benchmark
 {
-    [RPlotExporter, RankColumn]
+    [MemoryDiagnoser]
     public class Search
     {
         public static readonly string ResponseDirectory = "SearchResults";
 
-        [ParamsSource(nameof(ResponseFileNames))]
-        public string ResponseFileName;
+        [ParamsSource(nameof(TakeValues))]
+        public int Take;
 
         private PackageSearchResource _resource;
 
@@ -26,20 +26,21 @@ namespace Benchmark
         {
             var responses = new Dictionary<string, string>();
             responses.Add("http://testsource.com/v3/index.json", JsonData.IndexWithoutFlatContainer);
-            var response = File.ReadAllText(Path.Combine(ResponseDirectory, $"{ResponseFileName}.json"));
-            responses.Add("https://api-v3search-0.nuget.org/query?q=&skip=0&take=26&prerelease=false&semVerLevel=2.0.0", response);
+            var response = File.ReadAllText(Path.Combine(ResponseDirectory, $"{Take:D4}.json"));
+            responses.Add($"https://api-v3search-0.nuget.org/query?q=&skip=0&take={Take}&prerelease=false&semVerLevel=2.0.0", response);
 
             var repo = StaticHttpHandler.CreateSource("http://testsource.com/v3/index.json", Repository.Provider.GetCoreV3(), responses);
             _resource = await repo.GetResourceAsync<PackageSearchResource>();
         }
 
-        public IEnumerable<string> ResponseFileNames
+        public IEnumerable<int> TakeValues
         {
             get
             {
                 foreach (var file in Directory.EnumerateFiles(ResponseDirectory, "*.json", SearchOption.AllDirectories))
                 {
-                    yield return Path.GetFileNameWithoutExtension(file);
+                    var fileName = Path.GetFileNameWithoutExtension(file);
+                    yield return int.Parse(fileName);
                 }
             }
         }
@@ -51,7 +52,7 @@ namespace Benchmark
                 string.Empty,
                 new SearchFilter(false),
                 skip: 0,
-                take: 26,
+                take: Take,
                 log: NuGet.Common.NullLogger.Instance,
                 cancellationToken: CancellationToken.None);
         }
@@ -72,7 +73,7 @@ namespace Benchmark
                 int count = 0;
                 while (true)
                 {
-                    var take = count * 50;
+                    var take = count * 100;
                     var filePath = Path.Combine(Search.ResponseDirectory, $"{take:D4}.json");
                     Directory.CreateDirectory("SearchResults");
 
@@ -89,7 +90,7 @@ namespace Benchmark
 
                     count++;
 
-                    if (count == 21)
+                    if (count == 11)
                     {
                         break;
                     }
