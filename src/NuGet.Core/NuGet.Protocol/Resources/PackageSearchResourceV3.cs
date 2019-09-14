@@ -2,11 +2,9 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 using NuGet.Protocol.Core.Types;
 
 namespace NuGet.Protocol
@@ -23,38 +21,17 @@ namespace NuGet.Protocol
 
         public override async Task<IEnumerable<IPackageSearchMetadata>> SearchAsync(string searchTerm, SearchFilter filter, int skip, int take, Common.ILogger log, CancellationToken cancellationToken)
         {
-            var searchResultMetadata = await _rawSearchResource.Search(
-                (httpSource, uri) => httpSource.ProcessStreamAsync(
-                    new HttpSourceRequest(uri, Common.NullLogger.Instance),
-                    s => ProgressStreamAsync(s, cancellationToken),
-                    log,
-                    cancellationToken),
-                searchTerm,
-                filter,
-                skip,
-                take);
+            var searchResultJsonObjects = await _rawSearchResource.Search(searchTerm, filter, skip, take, Common.NullLogger.Instance, cancellationToken);
 
             var metadataCache = new MetadataReferenceCache();
 
-            var searchResults = searchResultMetadata
+            var searchResults = searchResultJsonObjects
+                .Select(s => s.FromJToken<PackageSearchMetadata>())
                 .Select(m => m.WithVersions(() => GetVersions(m, filter)))
                 .Select(m => metadataCache.GetObject((PackageSearchMetadataBuilder.ClonedPackageSearchMetadata) m))
                 .ToArray();
 
             return searchResults;
-        }
-
-        private static async Task<IEnumerable<PackageSearchMetadata>> ProgressStreamAsync(
-            Stream stream,
-            CancellationToken token)
-        {
-            using (var seekableStream = await stream.AsSeekableStreamAsync(token))
-            using (var streamReader = new StreamReader(seekableStream))
-            using (var jsonTextReader = new JsonTextReader(streamReader))
-            {
-                var response = JsonExtensions.JsonObjectSerializer.Deserialize<V3SearchResponse>(jsonTextReader);
-                return response.Data ?? Enumerable.Empty<PackageSearchMetadata>();
-            }
         }
 
         private static IEnumerable<VersionInfo> GetVersions(PackageSearchMetadata metadata, SearchFilter filter)
@@ -73,12 +50,6 @@ namespace NuGet.Protocol
                 .ToArray();
 
             return versions;
-        }
-
-        private class V3SearchResponse
-        {
-            [JsonProperty("data")]
-            public List<PackageSearchMetadata> Data { get; set; }
         }
     }
 }
