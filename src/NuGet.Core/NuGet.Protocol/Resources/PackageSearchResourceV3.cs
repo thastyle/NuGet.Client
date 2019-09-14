@@ -15,6 +15,8 @@ namespace NuGet.Protocol
     {
         private readonly RawSearchResourceV3 _rawSearchResource;
 
+        public static bool UseNew;
+
         public PackageSearchResourceV3(RawSearchResourceV3 searchResource)
             : base()
         {
@@ -23,18 +25,30 @@ namespace NuGet.Protocol
 
         public override async Task<IEnumerable<IPackageSearchMetadata>> SearchAsync(string searchTerm, SearchFilter filter, int skip, int take, Common.ILogger log, CancellationToken cancellationToken)
         {
-            var searchResultMetadata = await _rawSearchResource.Search(
-                (httpSource, uri) => httpSource.ProcessStreamAsync(
-                    new HttpSourceRequest(uri, Common.NullLogger.Instance),
-                    s => ProgressStreamAsync(s, cancellationToken),
-                    log,
-                    cancellationToken),
-                searchTerm,
-                filter,
-                skip,
-                take);
-
             var metadataCache = new MetadataReferenceCache();
+            IEnumerable<PackageSearchMetadata> searchResultMetadata;
+
+            if (!UseNew)
+            {
+                var searchResultJsonObjects = await _rawSearchResource.Search(searchTerm, filter, skip, take, Common.NullLogger.Instance, cancellationToken);
+
+                searchResultMetadata = searchResultJsonObjects
+                    .Select(s => s.FromJToken<PackageSearchMetadata>());
+            }
+            else
+            {
+                searchResultMetadata = await _rawSearchResource.Search(
+                    (httpSource, uri) => httpSource.ProcessStreamAsync(
+                        new HttpSourceRequest(uri, Common.NullLogger.Instance),
+                        s => ProgressStreamAsync(s, cancellationToken),
+                        log,
+                        cancellationToken),
+                    searchTerm,
+                    filter,
+                    skip,
+                    take);
+            }
+
 
             var searchResults = searchResultMetadata
                 .Select(m => m.WithVersions(() => GetVersions(m, filter)))

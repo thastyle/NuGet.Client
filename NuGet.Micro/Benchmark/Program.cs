@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
+using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
 using Test.Utility;
 
@@ -46,7 +47,20 @@ namespace Benchmark
         }
 
         [Benchmark]
-        public async Task TestAsync()
+        public async Task Old()
+        {
+            PackageSearchResourceV3.UseNew = false;
+            await RunSearchAsync();
+        }
+
+        [Benchmark]
+        public async Task New()
+        {
+            PackageSearchResourceV3.UseNew = true;
+            await RunSearchAsync();
+        }
+
+        private async Task RunSearchAsync()
         {
             await _resource.SearchAsync(
                 string.Empty,
