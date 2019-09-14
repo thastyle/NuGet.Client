@@ -36,7 +36,31 @@ namespace NuGet.Protocol
             _searchEndpoints = searchEndpoints.ToArray();
         }
 
-        public virtual async Task<JObject> SearchPage(string searchTerm, SearchFilter filters, int skip, int take, Common.ILogger log, CancellationToken cancellationToken)
+        public virtual async Task<JObject> SearchPage(
+            string searchTerm,
+            SearchFilter filters,
+            int skip,
+            int take,
+            Common.ILogger log,
+            CancellationToken cancellationToken)
+        {
+            return await SearchPage(
+                async uri => await _client.GetJObjectAsync(
+                    new HttpSourceRequest(uri, log),
+                    log,
+                    cancellationToken),
+                searchTerm,
+                filters,
+                skip,
+                take);
+        }
+
+        private async Task<T> SearchPage<T>(
+            Func<Uri, Task<T>> getResultAsync,
+            string searchTerm,
+            SearchFilter filters,
+            int skip,
+            int take)
         {
             for (var i = 0; i < _searchEndpoints.Length; i++)
             {
@@ -78,13 +102,10 @@ namespace NuGet.Protocol
 
                 queryUrl.Query = queryString;
 
-                JObject searchJson = null;
+                var searchResult = default(T);
                 try
                 {
-                    searchJson = await _client.GetJObjectAsync(
-                        new HttpSourceRequest(queryUrl.Uri, log),
-                        log,
-                        cancellationToken);
+                    searchResult = await getResultAsync(queryUrl.Uri);
                 }
                 catch (OperationCanceledException)
                 {
@@ -103,9 +124,9 @@ namespace NuGet.Protocol
                     throw new FatalProtocolException(string.Format(CultureInfo.CurrentCulture, Strings.Protocol_BadSource, queryUrl.Uri), ex);
                 }
 
-                if (searchJson != null)
+                if (searchResult != null)
                 {
-                    return searchJson;
+                    return searchResult;
                 }
             }
 
@@ -119,6 +140,21 @@ namespace NuGet.Protocol
 
             var data = results[JsonProperties.Data] as JArray ?? Enumerable.Empty<JToken>();
             return data.OfType<JObject>();
+        }
+
+        internal async Task<T> Search<T>(
+            Func<HttpSource, Uri, Task<T>> getResultAsync,
+            string searchTerm,
+            SearchFilter filters,
+            int skip,
+            int take)
+        {
+            return await SearchPage(
+                uri => getResultAsync(_client, uri),
+                searchTerm,
+                filters,
+                skip,
+                take);
         }
     }
 }
