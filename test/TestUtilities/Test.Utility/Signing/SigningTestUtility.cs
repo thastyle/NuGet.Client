@@ -662,11 +662,20 @@ namespace Test.Utility.Signing
 
         public static void AssertOfflineRevocation(IEnumerable<ILogMessage> issues, LogLevel logLevel)
         {
+            AssertOfflineRevocation(issues, logLevel, NuGetLogCode.NU3018);
+        }
+
+        public static void AssertOfflineRevocation(IEnumerable<ILogMessage> issues, LogLevel logLevel, NuGetLogCode code)
+        {
             string offlineRevocation;
 
             if (RuntimeEnvironmentHelper.IsWindows)
             {
+#if IS_DESKTOP
+                offlineRevocation = "The revocation function was unable to check revocation because the revocation server could not be reached.";
+#else
                 offlineRevocation = "The revocation function was unable to check revocation because the revocation server was offline";
+#endif
             }
             else if (RuntimeEnvironmentHelper.IsMacOSX)
             {
@@ -674,16 +683,21 @@ namespace Test.Utility.Signing
             }
             else
             {
-                offlineRevocation = "unable to get certificate CRL";
+                offlineRevocation = "The revocation function was unable to check revocation because the revocation server could not be reached.";
             }
 
             Assert.Contains(issues, issue =>
-                issue.Code == NuGetLogCode.NU3018 &&
+                issue.Code == code &&
                 issue.Level == logLevel &&
                 issue.Message.Contains(offlineRevocation));
         }
 
         public static void AssertRevocationStatusUnknown(IEnumerable<ILogMessage> issues, LogLevel logLevel)
+        {
+            AssertRevocationStatusUnknown(issues, logLevel, NuGetLogCode.NU3018);
+        }
+
+        public static void AssertRevocationStatusUnknown(IEnumerable<ILogMessage> issues, LogLevel logLevel, NuGetLogCode code)
         {
             string revocationStatusUnknown;
 
@@ -699,9 +713,9 @@ namespace Test.Utility.Signing
             {
                 revocationStatusUnknown = "unable to get certificate CRL";
             }
-            
+
             Assert.Contains(issues, issue =>
-                issue.Code == NuGetLogCode.NU3018 &&
+                issue.Code == code &&
                 issue.Level == logLevel &&
                 issue.Message.Contains(revocationStatusUnknown));
         }

@@ -81,17 +81,11 @@ namespace NuGet.Packaging.FuncTest
                     result.HasFlag(SignatureVerificationStatusFlags.UnknownRevocation).Should().BeTrue();
 
                     var errors = logs.Where(l => l.Level == LogLevel.Error);
-                    errors.Count().Should().Be(RuntimeEnvironmentHelper.IsWindows ? 2 : 1);
 
-                    if (RuntimeEnvironmentHelper.IsWindows)
-                    {
-                        errors.Should().Contain(w => w.Code == NuGetLogCode.NU3028 && w.Message.Contains("The revocation function was unable to check revocation because the revocation server could not be reached."));
-                        errors.Should().Contain(w => w.Code == NuGetLogCode.NU3028 && w.Message.Contains("The revocation function was unable to check revocation for the certificate."));
-                    }
-                    else
-                    {
-                        errors.Should().Contain(w => w.Code == NuGetLogCode.NU3028 && w.Message.Contains("unable to get certificate CRL"));
-                    }
+                    errors.Count().Should().Be(RuntimeEnvironmentHelper.IsMacOSX ? 1 : 2);
+
+                    SigningTestUtility.AssertOfflineRevocation(errors, LogLevel.Error, NuGetLogCode.NU3028);
+                    SigningTestUtility.AssertRevocationStatusUnknown(errors, LogLevel.Error, NuGetLogCode.NU3028);
                 }
             }
         }
