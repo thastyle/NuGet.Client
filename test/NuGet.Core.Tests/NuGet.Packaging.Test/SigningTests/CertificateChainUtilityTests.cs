@@ -98,24 +98,21 @@ namespace NuGet.Packaging.Test
                 Assert.Equal(1, logger.Errors);
                 SigningTestUtility.AssertUntrustedRoot(logger.LogMessages, LogLevel.Error);
 
-                if (RuntimeEnvironmentHelper.IsWindows || RuntimeEnvironmentHelper.IsLinux)
-                {
 #if NETCORE5_0
-                    Assert.Equal(2, logger.Warnings);
+                Assert.Equal(2, logger.Warnings);
 #else
-                    Assert.Equal(RuntimeEnvironmentHelper.IsWindows ? 2 : 1, logger.Warnings);
+                Assert.Equal(RuntimeEnvironmentHelper.IsLinux ? 1 : 2, logger.Warnings);
 #endif
-                    SigningTestUtility.AssertOfflineRevocation(logger.LogMessages, LogLevel.Warning);
+                SigningTestUtility.AssertRevocationStatusUnknown(logger.LogMessages, LogLevel.Warning);
 
 #if NETCORE5_0
-                    SigningTestUtility.AssertRevocationStatusUnknown(logger.LogMessages, LogLevel.Warning);
+                SigningTestUtility.AssertOfflineRevocation(logger.LogMessages, LogLevel.Warning);
 #else
-                    if (RuntimeEnvironmentHelper.IsWindows)
-                    {
-                        SigningTestUtility.AssertRevocationStatusUnknown(logger.LogMessages, LogLevel.Warning);
-                    }
-#endif
+                if (RuntimeEnvironmentHelper.IsWindows || RuntimeEnvironmentHelper.IsMacOSX)
+                {
+                    SigningTestUtility.AssertOfflineRevocation(logger.LogMessages, LogLevel.Warning);
                 }
+#endif
             }
         }
 
@@ -148,7 +145,7 @@ namespace NuGet.Packaging.Test
 #if !NETCORE5_0
                 if (RuntimeEnvironmentHelper.IsLinux)
                 {
-                    SigningTestUtility.AssertOfflineRevocation(logger.LogMessages, LogLevel.Warning);
+                    SigningTestUtility.AssertRevocationStatusUnknown(logger.LogMessages, LogLevel.Warning);
                 }
 #endif
             }
