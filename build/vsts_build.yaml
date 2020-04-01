@@ -841,7 +841,9 @@ jobs:
   condition: "and(succeeded(),eq(variables['RunApexTests'], 'true')) "
   pool:
     name: DDNuGet-Windows
-    demands: DotNetFramework
+    demands: 
+    - DotNetFramework
+    - Agent.Name -equals DDNuGetW004
 
   steps:
   - checkout: self
