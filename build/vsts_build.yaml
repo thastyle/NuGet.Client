@@ -843,7 +843,7 @@ jobs:
     name: DDNuGet-Windows
     demands: 
     - DotNetFramework
-    - Agent.Name -equals DDNuGetW004
+    - Agent.Name -equals DDNuGetW005
 
   steps:
   - checkout: self
