@@ -16,6 +16,9 @@ using NuGet.Credentials;
 using NuGet.LibraryModel;
 using NuGet.Packaging;
 using NuGet.Versioning;
+#if IS_DESKTOP
+using NuGet.VisualStudio;
+#endif
 
 namespace Microsoft.Build.NuGetSdkResolver
 {
@@ -113,8 +116,27 @@ namespace Microsoft.Build.NuGetSdkResolver
         {
             public static SdkResult GetSdkResult(SdkReference sdk, object nuGetVersion, SdkResolverContext context, SdkResultFactory factory)
             {
+#if IS_DESKTOP
+                if (RuntimeEnvironmentHelper.IsRunningInVisualStudio)
+                {
+                    return GetSdkResultInVS(sdk, nuGetVersion, context, factory);
+                }
+#endif
+                return GetSdkResultInternal(sdk, nuGetVersion, context, factory);
+            }
+
+#if IS_DESKTOP
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            private static SdkResult GetSdkResultInVS(SdkReference sdk, object nuGetVersion, SdkResolverContext context, SdkResultFactory factory)
+            {
+                return NuGetUIThreadHelper.JoinableTaskFactory.Run(() => Task.FromResult(GetSdkResultInternal(sdk, nuGetVersion, context, factory)));
+            }
+#endif
+
+            private static SdkResult GetSdkResultInternal(SdkReference sdk, object nuGetVersion, SdkResolverContext context, SdkResultFactory factory)
+            {
                 // Cast the NuGet version since the caller does not want to consume NuGet classes directly
-                var parsedSdkVersion = (NuGetVersion) nuGetVersion;
+                var parsedSdkVersion = (NuGetVersion)nuGetVersion;
 
                 // Stores errors and warnings for the result
                 ICollection<string> errors = new List<string>();
@@ -143,7 +165,9 @@ namespace Microsoft.Build.NuGetSdkResolver
                             settings,
                             nugetSDKLogger));
 
+#pragma warning disable VSTHRD002 // Avoid problematic synchronous waits
                         var results = restoreTask.Result;
+#pragma warning restore VSTHRD002 // Avoid problematic synchronous waits
 
                         fallbackPackagePathResolver = new FallbackPackagePathResolver(NuGetPathContext.Create(settings));
 
@@ -226,7 +250,7 @@ namespace Microsoft.Build.NuGetSdkResolver
                 // Get the installed path and add the expected "Sdk" folder.  Windows file systems are not case sensitive
                 installedPath = Path.Combine(packageInfo.PathResolver.GetInstallPath(packageInfo.Id, packageInfo.Version), "Sdk");
 
-                
+
                 if (!NuGet.Common.RuntimeEnvironmentHelper.IsWindows && !Directory.Exists(installedPath))
                 {
                     // Fall back to lower case "sdk" folder in case the file system is case sensitive
