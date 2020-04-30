@@ -1,4 +1,4 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -37,17 +37,17 @@ namespace NuGet.Frameworks
         {
             if (framework == null)
             {
-                throw new ArgumentNullException("framework");
+                throw new ArgumentNullException(nameof(framework));
             }
 
             if (fallbackFrameworks == null)
             {
-                throw new ArgumentNullException("fallbackFrameworks");
+                throw new ArgumentNullException(nameof(fallbackFrameworks));
             }
 
             if (fallbackFrameworks.Count == 0)
             {
-                throw new ArgumentException("Empty fallbackFrameworks is invalid", "fallbackFrameworks");
+                throw new ArgumentException("Empty fallbackFrameworks is invalid", nameof(fallbackFrameworks));
             }
 
             _fallback = fallbackFrameworks;
