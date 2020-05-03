@@ -83,6 +83,6 @@ namespace NuGet.ProjectManagement.Projects
 
         public abstract Task<bool> NeedsRestore();
 
-        public abstract Task ReportRestoreSummaryAsync(RestoreResult restoreSummary);
+        public abstract Task ReportRestoreStatusAsync(bool status);
     }
 }

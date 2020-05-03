@@ -39,6 +39,10 @@ namespace NuGet.ProjectManagement
         /// <returns></returns>
         Task<bool> NeedsRestore();
 
-        Task ReportRestoreSummaryAsync(RestoreSummary restoreSummary);
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="status"></param>
+        Task ReportRestoreStatusAsync(bool status);
     }
 }

@@ -709,7 +709,7 @@ namespace NuGet.ProjectManagement
             return Task.FromResult(true);
         }
 
-        public Task ReportRestoreSummaryAsync(RestoreSummary restoreSummary)
+        public Task ReportRestoreStatusAsync(bool status)
         {
             // We should never report a restore summary to an MSBuildNuGetProject.
             throw new NotImplementedException();

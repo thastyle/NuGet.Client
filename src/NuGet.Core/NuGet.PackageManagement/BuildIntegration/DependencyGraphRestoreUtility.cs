@@ -271,9 +271,6 @@ namespace NuGet.PackageManagement
             ISolutionManager solutionManager,
             DependencyGraphCacheContext context)
         {
-            // Here we should make a decision whether we truly need to restore or not!
-            // Focus on the actual restore for now.
-
             var dgSpec = new DependencyGraphSpec();
             List<IAssetsLogMessage> allAdditionalMessages = null;
 
@@ -307,6 +304,7 @@ namespace NuGet.PackageManagement
                     {
                         if (needsRestore)
                         {
+                            // TODO NK - Ensure updates are propagated to the parents.
                             dgSpec.AddRestore(packageSpec.RestoreMetadata.ProjectUniqueName);
                         }
                         var projFileName = Path.GetFileName(packageSpec.RestoreMetadata.ProjectPath);

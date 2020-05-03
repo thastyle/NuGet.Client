@@ -392,10 +392,9 @@ namespace NuGet.ProjectManagement.Projects
             return Task.FromResult(true);
         }
 
-        public override Task ReportRestoreSummaryAsync(RestoreSummary restoreSummary)
+        public override Task ReportRestoreStatusAsync(bool status)
         {
             return Task.CompletedTask;
-            // Who gives a shit, project.json is not used anymore.
         }
     }
 }

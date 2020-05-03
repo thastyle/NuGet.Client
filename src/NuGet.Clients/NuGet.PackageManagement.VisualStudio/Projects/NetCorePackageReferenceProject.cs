@@ -375,8 +375,7 @@ namespace NuGet.PackageManagement.VisualStudio
         public override Task<bool> NeedsRestore()
         {
             // If the settings were updated. We need restore. => assume they haven't.
-            // If restore is explicit, we need restore. => handle is somewhere differently.
-
+            // If restore is explicit, we need restore. => handle it somewhere differently.
             _projectSystemCache.TryGetProjectRestoreInfo(_projectFullPath, out DependencyGraphSpec projectRestoreInfo, out _);
             bool needsRestore = true;
             DependencyGraphSpec currentWeakReference = null;
@@ -387,18 +386,15 @@ namespace NuGet.PackageManagement.VisualStudio
                     needsRestore = !currentWeakReference.Equals(projectRestoreInfo);
                 }
             }
-
             _weakReference = new WeakReference<DependencyGraphSpec>(projectRestoreInfo);
 
             return Task.FromResult(needsRestore);
         }
 
-        public override Task ReportRestoreSummaryAsync(RestoreSummary restoreSummary)
+        public override Task ReportRestoreStatusAsync(bool status)
         {
-            // TODO NK - be smart here
-            // Not even sure if the status matters here.
             // Whenever NeedsRestore gets called, we assume that this call will be under a lock.
-
+            // We need to be able to handle cancellations here.
             return Task.CompletedTask;
         }
 

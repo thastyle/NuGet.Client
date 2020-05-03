@@ -2815,7 +2815,7 @@ namespace NuGet.PackageManagement
                 }
                 else
                 {
-                    await buildIntegratedProject.ReportRestoreSummaryAsync(projectAction.RestoreResultPair.Result);
+                    await buildIntegratedProject.ReportRestoreStatusAsync(projectAction.RestoreResultPair.Result.Success);
                     // Write out the assets file
                     await RestoreRunner.CommitAsync(projectAction.RestoreResultPair, token);
                 }

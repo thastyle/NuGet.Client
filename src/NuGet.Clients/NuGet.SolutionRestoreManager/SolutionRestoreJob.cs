@@ -362,7 +362,14 @@ namespace NuGet.SolutionRestoreManager
                                 l,
                                 t);
 
-                            // TODO NK - report the result here.
+                            foreach(var summary in restoreSummaries)
+                            {
+                                var project = await _solutionManager.GetNuGetProjectAsync(summary.InputPath) as BuildIntegratedNuGetProject;
+                                if(project != null)
+                                {
+                                    await project.ReportRestoreStatusAsync(summary.Success);
+                                }
+                            }
 
                             _packageCount += restoreSummaries.Select(summary => summary.InstallCount).Sum();
                             var isRestoreFailed = restoreSummaries.Any(summary => summary.Success == false);

@@ -467,10 +467,8 @@ namespace NuGet.PackageManagement.VisualStudio
             return Task.FromResult(true);
         }
 
-        public override Task ReportRestoreSummaryAsync(RestoreSummary restoreSummary)
+        public override Task ReportRestoreStatusAsync(bool status)
         {
-            // TODO NK - Who gives a shit.
-
             return Task.CompletedTask;
         }
     }
