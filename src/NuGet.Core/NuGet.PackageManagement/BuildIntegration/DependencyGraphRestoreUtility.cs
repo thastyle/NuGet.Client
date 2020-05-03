@@ -279,8 +279,6 @@ namespace NuGet.PackageManagement
 
             for (var i = 0; i < projects.Count; i++)
             {
-                var needsRestore = await projects[i].NeedsRestore();
-
                 var (packageSpecs, projectAdditionalMessages) = await projects[i].GetPackageSpecsAndAdditionalMessagesAsync(context);
 
                 if (projectAdditionalMessages != null && projectAdditionalMessages.Count > 0)
@@ -302,7 +300,8 @@ namespace NuGet.PackageManagement
                         packageSpec.RestoreMetadata.ProjectStyle == ProjectStyle.DotnetCliTool ||
                         packageSpec.RestoreMetadata.ProjectStyle == ProjectStyle.Standalone) // Don't add global tools to restore specs for solutions
                     {
-                        if (needsRestore)
+                        // By here, everything should be build integrated.
+                        if (await (projects[i] as BuildIntegratedNuGetProject).NeedsRestore())
                         {
                             // TODO NK - Ensure updates are propagated to the parents.
                             dgSpec.AddRestore(packageSpec.RestoreMetadata.ProjectUniqueName);
