@@ -364,9 +364,13 @@ namespace NuGet.SolutionRestoreManager
                                 l,
                                 t);
 
+                            // TODO NK - report the result here.
+
                             _packageCount += restoreSummaries.Select(summary => summary.InstallCount).Sum();
                             var isRestoreFailed = restoreSummaries.Any(summary => summary.Success == false);
                             _noOpProjectsCount = restoreSummaries.Where(summary => summary.NoOpRestore == true).Count();
+
+                            // TODO NK - we should have a way to get the "skipped count".
 
                             if (isRestoreFailed)
                             {

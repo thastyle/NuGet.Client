@@ -370,6 +370,38 @@ namespace NuGet.PackageManagement.VisualStudio
             return Task.FromResult(NoOpRestoreUtilities.GetProjectCacheFilePath(cacheRoot: spec.RestoreMetadata.OutputPath));
         }
 
+        private WeakReference<DependencyGraphSpec> _weakReference;
+
+        public override Task<bool> NeedsRestore()
+        {
+            // If the settings were updated. We need restore. => assume they haven't.
+            // If restore is explicit, we need restore. => handle is somewhere differently.
+
+            _projectSystemCache.TryGetProjectRestoreInfo(_projectFullPath, out DependencyGraphSpec projectRestoreInfo, out _);
+            bool needsRestore = true;
+            DependencyGraphSpec currentWeakReference = null;
+            if (_weakReference?.TryGetTarget(out currentWeakReference) ?? false)
+            {
+                if (currentWeakReference != null)
+                {
+                    needsRestore = !currentWeakReference.Equals(projectRestoreInfo);
+                }
+            }
+
+            _weakReference = new WeakReference<DependencyGraphSpec>(projectRestoreInfo);
+
+            return Task.FromResult(needsRestore);
+        }
+
+        public override Task ReportRestoreSummaryAsync(RestoreSummary restoreSummary)
+        {
+            // TODO NK - be smart here
+            // Not even sure if the status matters here.
+            // Whenever NeedsRestore gets called, we assume that this call will be under a lock.
+
+            return Task.CompletedTask;
+        }
+
         #endregion
     }
 }

@@ -3,6 +3,8 @@
 
 using System.Collections.Generic;
 using System.Threading.Tasks;
+
+using NuGet.Commands;
 using NuGet.ProjectModel;
 
 namespace NuGet.ProjectManagement
@@ -30,5 +32,13 @@ namespace NuGet.ProjectManagement
         /// optionally include more specs to restore such as tools.
         /// </summary>
         Task<(IReadOnlyList<PackageSpec> dgSpecs, IReadOnlyList<IAssetsLogMessage> additionalMessages)> GetPackageSpecsAndAdditionalMessagesAsync(DependencyGraphCacheContext context);
+
+        /// <summary>
+        /// Is this project likely to need a restore?
+        /// </summary>
+        /// <returns></returns>
+        Task<bool> NeedsRestore();
+
+        Task ReportRestoreSummaryAsync(RestoreSummary restoreSummary);
     }
 }

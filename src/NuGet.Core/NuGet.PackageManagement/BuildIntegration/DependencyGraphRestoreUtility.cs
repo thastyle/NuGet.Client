@@ -72,6 +72,8 @@ namespace NuGet.PackageManagement
             ILogger log,
             CancellationToken token)
         {
+            // PackageReference restore in Visual Studio, one comes from the NuGetPackageManager, the other one comes from the solution restore job.
+
             // TODO: This will flow from UI once we enable UI option to trigger reevaluation
             var restoreForceEvaluate = false;
 
@@ -83,6 +85,7 @@ namespace NuGet.PackageManagement
                     // Update cache context
                     cacheContextModifier(sourceCacheContext);
 
+                    // We can be smart here too, ensure that all the parents of an updated projects are getting restored.
                     var restoreContext = GetRestoreContext(
                         context,
                         providerCache,
@@ -99,6 +102,8 @@ namespace NuGet.PackageManagement
 
                     RestoreSummary.Log(log, restoreSummaries);
 
+                    // TODO NK - Is this worth it?
+                    // Do we ever use it? 
                     await PersistDGSpec(dgSpec);
 
                     return restoreSummaries;
@@ -262,6 +267,9 @@ namespace NuGet.PackageManagement
             ISolutionManager solutionManager,
             DependencyGraphCacheContext context)
         {
+            // Here we should make a decision whether we truly need to restore or not!
+            // Focus on the actual restore for now.
+
             var dgSpec = new DependencyGraphSpec();
             List<IAssetsLogMessage> allAdditionalMessages = null;
 
@@ -270,6 +278,8 @@ namespace NuGet.PackageManagement
 
             for (var i = 0; i < projects.Count; i++)
             {
+                var needsRestore = await projects[i].NeedsRestore();
+
                 var (packageSpecs, projectAdditionalMessages) = await projects[i].GetPackageSpecsAndAdditionalMessagesAsync(context);
 
                 if (projectAdditionalMessages != null && projectAdditionalMessages.Count > 0)
@@ -291,8 +301,10 @@ namespace NuGet.PackageManagement
                         packageSpec.RestoreMetadata.ProjectStyle == ProjectStyle.DotnetCliTool ||
                         packageSpec.RestoreMetadata.ProjectStyle == ProjectStyle.Standalone) // Don't add global tools to restore specs for solutions
                     {
-                        dgSpec.AddRestore(packageSpec.RestoreMetadata.ProjectUniqueName);
-
+                        if (needsRestore)
+                        {
+                            dgSpec.AddRestore(packageSpec.RestoreMetadata.ProjectUniqueName);
+                        }
                         var projFileName = Path.GetFileName(packageSpec.RestoreMetadata.ProjectPath);
                         var dgFileName = DependencyGraphSpec.GetDGSpecFileName(projFileName);
                         var outputPath = packageSpec.RestoreMetadata.OutputPath;

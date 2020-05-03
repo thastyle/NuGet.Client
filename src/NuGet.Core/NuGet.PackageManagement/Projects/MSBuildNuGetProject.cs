@@ -11,6 +11,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+
+using NuGet.Commands;
 using NuGet.Common;
 using NuGet.Frameworks;
 using NuGet.PackageManagement;
@@ -700,6 +702,17 @@ namespace NuGet.ProjectManagement
             }
 
             return (new[] { packageSpec }, null);
+        }
+
+        public Task<bool> NeedsRestore()
+        {
+            return Task.FromResult(true);
+        }
+
+        public Task ReportRestoreSummaryAsync(RestoreSummary restoreSummary)
+        {
+            // We should never report a restore summary to an MSBuildNuGetProject.
+            throw new NotImplementedException();
         }
     }
 }
