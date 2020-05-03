@@ -147,8 +147,6 @@ namespace NuGet.SolutionRestoreManager
             return _status == NuGetOperationStatus.NoOp || _status == NuGetOperationStatus.Succeeded;
         }
 
-
-
         private async Task RestoreAsync(bool forceRestore, RestoreOperationSource restoreSource, CancellationToken token)
         {
             var startTime = DateTimeOffset.Now;

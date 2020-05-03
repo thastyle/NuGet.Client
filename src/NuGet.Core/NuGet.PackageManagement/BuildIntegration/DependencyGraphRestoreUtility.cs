@@ -54,7 +54,9 @@ namespace NuGet.PackageManagement
                 log,
                 token);
         }
-
+        // TODO NK - Whoever is calling this needs to make sure the result is reported to the project itself, so it can be correlated! Basically when something gets reported a project needs to say, OK, next time someone calls the other method I return this stupid weak reference.
+        // The solution restore command calls the dg spec creation and it needs to send better telemetry compared to the package install actions.
+        // It's the restore command that's problematic and potentially slow.
         /// <summary>
         /// Restore a solution and cache the dg spec to context.
         /// </summary>
@@ -73,6 +75,7 @@ namespace NuGet.PackageManagement
             CancellationToken token)
         {
             // PackageReference restore in Visual Studio, one comes from the NuGetPackageManager, the other one comes from the solution restore job.
+            // It's the solution restore job stuff that needs to be intelligent. The rest of it, it doesn't matter.
 
             // TODO: This will flow from UI once we enable UI option to trigger reevaluation
             var restoreForceEvaluate = false;
@@ -255,6 +258,7 @@ namespace NuGet.PackageManagement
             return projectSpec;
         }
 
+        // From the 4 (1ST IS WITHOUT RESTORES)
         public static async Task<DependencyGraphSpec> GetSolutionRestoreSpec(
             ISolutionManager solutionManager,
             DependencyGraphCacheContext context)
