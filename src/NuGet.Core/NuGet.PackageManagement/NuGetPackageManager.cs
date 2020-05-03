@@ -2063,7 +2063,7 @@ namespace NuGet.PackageManagement
 
                 var projectUniqueNamesForBuildIntToUpdate
                     = buildIntegratedProjectsToUpdate.ToDictionary((project) => project.MSBuildProjectPath);
-
+                // Here it doesn't matter what the value in restore is.
                 var dgFile = await DependencyGraphRestoreUtility.GetSolutionRestoreSpec(SolutionManager, referenceContext);
                 _buildIntegratedProjectsCache = dgFile;
                 var allSortedProjects = DependencyGraphSpec.SortPackagesByDependencyOrder(dgFile.Projects);
@@ -2866,6 +2866,7 @@ namespace NuGet.PackageManagement
                 // build reference cache if not done already
                 if (_buildIntegratedProjectsCache == null)
                 {
+                    // The restore value does not matter here.
                     _buildIntegratedProjectsCache = await
                         DependencyGraphRestoreUtility.GetSolutionRestoreSpec(SolutionManager, referenceContext);
                 }
@@ -2876,6 +2877,7 @@ namespace NuGet.PackageManagement
                     buildIntegratedProject,
                     _buildIntegratedProjectsCache);
                 // The settings contained in the context are applied to the dg spec.
+                // It doesn't matter here either, so there should be no bugs here.
                 var dgSpecForParents = await DependencyGraphRestoreUtility.GetSolutionRestoreSpec(SolutionManager, referenceContext);
                 dgSpecForParents = dgSpecForParents.WithoutRestores();
 
