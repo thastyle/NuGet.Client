@@ -324,6 +324,8 @@ namespace NuGet.SolutionRestoreManager
                 var pathContext = NuGetPathContext.Create(_settings);
 
                 // Get full dg spec
+                // The problem really is "restore".
+                // We should focus on the restore operation, and we get that here. 
                 var (dgSpec, additionalMessages) = await DependencyGraphRestoreUtility.GetSolutionRestoreSpecAndAdditionalMessages(_solutionManager, cacheContext);
                 intervalTracker.EndIntervalMeasure(RestoreTelemetryEvent.SolutionDependencyGraphSpecCreation);
                 intervalTracker.StartIntervalMeasure();
@@ -362,6 +364,9 @@ namespace NuGet.SolutionRestoreManager
                                 l,
                                 t);
 
+                            // We need to take a snapshot of the package spec before each restore.
+                            // The key is that we need to call GetPacakgeSpecs exactly once, we want to ensure that we are using the exact dg spec.
+                            // Restore force might just ignore the snapshot. 
                             foreach(var summary in restoreSummaries)
                             {
                                 var project = await _solutionManager.GetNuGetProjectAsync(summary.InputPath) as BuildIntegratedNuGetProject;

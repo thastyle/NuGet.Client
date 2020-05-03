@@ -158,9 +158,6 @@ namespace NuGet.PackageManagement
             ILogger log,
             CancellationToken token)
         {
-            // Restoring packages
-            var logger = context.Logger;
-
             // Add the new spec to the dg file and fill in the rest.
             var dgFile = await GetSolutionRestoreSpec(solutionManager, context);
 
@@ -258,7 +255,6 @@ namespace NuGet.PackageManagement
             return projectSpec;
         }
 
-        // From the 4 (1ST IS WITHOUT RESTORES)
         public static async Task<DependencyGraphSpec> GetSolutionRestoreSpec(
             ISolutionManager solutionManager,
             DependencyGraphCacheContext context)
