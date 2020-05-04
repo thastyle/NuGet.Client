@@ -25,29 +25,8 @@ namespace NuGet.Commands
         public static async Task<IReadOnlyList<RestoreSummary>> RunAsync(RestoreArgs restoreContext, CancellationToken token)
         {
             // Create requests
-            var requests = await GetRequests(restoreContext);
+            var restoreRequests = await GetRequests(restoreContext);
 
-            // Run requests
-            return await RunAsync(requests, restoreContext, token);
-        }
-
-        /// <summary>
-        /// Create requests, execute requests, and commit restore results.
-        /// </summary>
-        public static async Task<IReadOnlyList<RestoreSummary>> RunAsync(RestoreArgs restoreContext)
-        {
-            // Run requests
-            return await RunAsync(restoreContext, CancellationToken.None);
-        }
-
-        /// <summary>
-        /// Execute and commit restore requests.
-        /// </summary>
-        private static async Task<IReadOnlyList<RestoreSummary>> RunAsync(
-            IEnumerable<RestoreSummaryRequest> restoreRequests,
-            RestoreArgs restoreContext,
-            CancellationToken token)
-        {
             var maxTasks = GetMaxTaskCount(restoreContext);
 
             var log = restoreContext.Log;
@@ -81,7 +60,11 @@ namespace NuGet.Commands
 
                 var request = requests.Dequeue();
 
-                var task = Task.Run(() => ExecuteAndCommitAsync(request, token), token);
+                var task = Task.Run(async () =>
+                {
+                    var result = await ExecuteAsync(request, token);
+                    return await CommitAsync(result, token);
+                }, token);
                 restoreTasks.Add(task);
             }
 
@@ -94,6 +77,15 @@ namespace NuGet.Commands
 
             // Summary
             return restoreSummaries;
+        }
+
+        /// <summary>
+        /// Create requests, execute requests, and commit restore results.
+        /// </summary>
+        public static async Task<IReadOnlyList<RestoreSummary>> RunAsync(RestoreArgs restoreContext)
+        {
+            // Run requests
+            return await RunAsync(restoreContext, CancellationToken.None);
         }
 
         /// <summary>
@@ -224,13 +216,6 @@ namespace NuGet.Commands
             }
 
             return maxTasks;
-        }
-
-        private static async Task<RestoreSummary> ExecuteAndCommitAsync(RestoreSummaryRequest summaryRequest, CancellationToken token)
-        {
-            var result = await ExecuteAsync(summaryRequest, token);
-
-            return await CommitAsync(result, token);
         }
 
         private static async Task<RestoreResultPair> ExecuteAsync(RestoreSummaryRequest summaryRequest, CancellationToken token)

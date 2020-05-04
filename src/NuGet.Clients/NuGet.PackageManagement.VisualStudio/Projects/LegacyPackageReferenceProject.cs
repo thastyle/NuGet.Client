@@ -458,5 +458,18 @@ namespace NuGet.PackageManagement.VisualStudio
                 }
             };
         }
+
+        public override Task<bool> NeedsRestore()
+        {
+            // Ideally we wouldn't need restore too often here.
+            // We'd only need whent he csproj is update. We know when the csproj is updated through the PM UI.
+            // The only other case is project reloads...it's possible we do get an event for project reloads, so we can dirty the project.
+            return Task.FromResult(true);
+        }
+
+        public override Task ReportRestoreStatusAsync(bool status)
+        {
+            return Task.CompletedTask;
+        }
     }
 }

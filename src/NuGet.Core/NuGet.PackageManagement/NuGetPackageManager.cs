@@ -10,6 +10,9 @@ using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
+
+using Microsoft.Build.Evaluation;
+
 using NuGet.Commands;
 using NuGet.Common;
 using NuGet.Configuration;
@@ -2063,7 +2066,7 @@ namespace NuGet.PackageManagement
 
                 var projectUniqueNamesForBuildIntToUpdate
                     = buildIntegratedProjectsToUpdate.ToDictionary((project) => project.MSBuildProjectPath);
-
+                // Here it doesn't matter what the value in restore is.
                 var dgFile = await DependencyGraphRestoreUtility.GetSolutionRestoreSpec(SolutionManager, referenceContext);
                 _buildIntegratedProjectsCache = dgFile;
                 var allSortedProjects = DependencyGraphSpec.SortPackagesByDependencyOrder(dgFile.Projects);
@@ -2790,6 +2793,7 @@ namespace NuGet.PackageManagement
                 var now = DateTime.UtcNow;
                 void cacheContextModifier(SourceCacheContext c) => c.MaxAge = now;
 
+                // This is where the actual work is happening for project installation. When can a project be in the update cache and need reevaluation?
                 // Check if current project is there in update cache and needs revaluation
                 var isProjectUpdated = false;
                 if (_buildIntegratedProjectsUpdateDict != null &&
@@ -2811,7 +2815,8 @@ namespace NuGet.PackageManagement
                 }
                 else
                 {
-                    // Write out the lock file
+                    await buildIntegratedProject.ReportRestoreStatusAsync(projectAction.RestoreResultPair.Result.Success);
+                    // Write out the assets file
                     await RestoreRunner.CommitAsync(projectAction.RestoreResultPair, token);
                 }
 
@@ -2866,6 +2871,7 @@ namespace NuGet.PackageManagement
                 // build reference cache if not done already
                 if (_buildIntegratedProjectsCache == null)
                 {
+                    // The restore value does not matter here.
                     _buildIntegratedProjectsCache = await
                         DependencyGraphRestoreUtility.GetSolutionRestoreSpec(SolutionManager, referenceContext);
                 }
@@ -2876,6 +2882,7 @@ namespace NuGet.PackageManagement
                     buildIntegratedProject,
                     _buildIntegratedProjectsCache);
                 // The settings contained in the context are applied to the dg spec.
+                // It doesn't matter here either, so there should be no bugs here.
                 var dgSpecForParents = await DependencyGraphRestoreUtility.GetSolutionRestoreSpec(SolutionManager, referenceContext);
                 dgSpecForParents = dgSpecForParents.WithoutRestores();
 
@@ -2896,9 +2903,10 @@ namespace NuGet.PackageManagement
 
                 if (dgSpecForParents.Restore.Count > 0)
                 {
+                    // TODO NK - Check how this correlates to the ExecuteBuildIntegrationProjectAction
                     // Restore and commit the lock file to disk regardless of the result
                     // This will restore all parents in a single restore 
-                    await DependencyGraphRestoreUtility.RestoreAsync(
+                    var results = await DependencyGraphRestoreUtility.RestoreAsync(
                         SolutionManager,
                         dgSpecForParents,
                         referenceContext,
@@ -2910,6 +2918,13 @@ namespace NuGet.PackageManagement
                         isRestoreOriginalAction: false, // not an explicit restore request instead being done as part of install or update
                         log: logger,
                         token: token);
+
+                    // Report to each project.
+
+                    foreach(var result in results)
+                    {
+                        // Get the project and report back.
+                    }
                 }
             }
             else

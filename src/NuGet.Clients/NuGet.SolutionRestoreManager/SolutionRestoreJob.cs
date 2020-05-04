@@ -147,8 +147,6 @@ namespace NuGet.SolutionRestoreManager
             return _status == NuGetOperationStatus.NoOp || _status == NuGetOperationStatus.Succeeded;
         }
 
-
-
         private async Task RestoreAsync(bool forceRestore, RestoreOperationSource restoreSource, CancellationToken token)
         {
             var startTime = DateTimeOffset.Now;
@@ -325,7 +323,13 @@ namespace NuGet.SolutionRestoreManager
                 var cacheContext = new DependencyGraphCacheContext(_logger, _settings);
                 var pathContext = NuGetPathContext.Create(_settings);
 
+                bool useOptimization = restoreSource == RestoreOperationSource.Implicit || (restoreSource == RestoreOperationSource.OnBuild && !forceRestore);
                 // Get full dg spec
+                // The problem really is "restore".
+                // We should focus on the restore operation, and we get that here.
+                // IF we want to stay out of restore, we can just keep a weakreference to the packagespec.
+                // We need to build a reverse topological graph and then check the output paths.
+                // Projects that failed the last restore need to get past the optimization too. A source change could affect them.
                 var (dgSpec, additionalMessages) = await DependencyGraphRestoreUtility.GetSolutionRestoreSpecAndAdditionalMessages(_solutionManager, cacheContext);
                 intervalTracker.EndIntervalMeasure(RestoreTelemetryEvent.SolutionDependencyGraphSpecCreation);
                 intervalTracker.StartIntervalMeasure();
@@ -364,9 +368,23 @@ namespace NuGet.SolutionRestoreManager
                                 l,
                                 t);
 
+                            // We need to take a snapshot of the package spec before each restore.
+                            // The key is that we need to call GetPacakgeSpecs exactly once, we want to ensure that we are using the exact dg spec.
+                            // Restore force might just ignore the snapshot. 
+                            foreach(var summary in restoreSummaries)
+                            {
+                                var project = await _solutionManager.GetNuGetProjectAsync(summary.InputPath) as BuildIntegratedNuGetProject;
+                                if(project != null)
+                                {
+                                    await project.ReportRestoreStatusAsync(summary.Success);
+                                }
+                            }
+
                             _packageCount += restoreSummaries.Select(summary => summary.InstallCount).Sum();
                             var isRestoreFailed = restoreSummaries.Any(summary => summary.Success == false);
                             _noOpProjectsCount = restoreSummaries.Where(summary => summary.NoOpRestore == true).Count();
+
+                            // TODO NK - we should have a way to get the "skipped count".
 
                             if (isRestoreFailed)
                             {

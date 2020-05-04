@@ -54,7 +54,9 @@ namespace NuGet.PackageManagement
                 log,
                 token);
         }
-
+        // TODO NK - Whoever is calling this needs to make sure the result is reported to the project itself, so it can be correlated! Basically when something gets reported a project needs to say, OK, next time someone calls the other method I return this stupid weak reference.
+        // The solution restore command calls the dg spec creation and it needs to send better telemetry compared to the package install actions.
+        // It's the restore command that's problematic and potentially slow.
         /// <summary>
         /// Restore a solution and cache the dg spec to context.
         /// </summary>
@@ -72,6 +74,9 @@ namespace NuGet.PackageManagement
             ILogger log,
             CancellationToken token)
         {
+            // PackageReference restore in Visual Studio, one comes from the NuGetPackageManager, the other one comes from the solution restore job.
+            // It's the solution restore job stuff that needs to be intelligent. The rest of it, it doesn't matter.
+
             // TODO: This will flow from UI once we enable UI option to trigger reevaluation
             var restoreForceEvaluate = false;
 
@@ -83,6 +88,7 @@ namespace NuGet.PackageManagement
                     // Update cache context
                     cacheContextModifier(sourceCacheContext);
 
+                    // We can be smart here too, ensure that all the parents of an updated projects are getting restored.
                     var restoreContext = GetRestoreContext(
                         context,
                         providerCache,
@@ -99,6 +105,8 @@ namespace NuGet.PackageManagement
 
                     RestoreSummary.Log(log, restoreSummaries);
 
+                    // TODO NK - Is this worth it?
+                    // Do we ever use it? 
                     await PersistDGSpec(dgSpec);
 
                     return restoreSummaries;
@@ -150,9 +158,6 @@ namespace NuGet.PackageManagement
             ILogger log,
             CancellationToken token)
         {
-            // Restoring packages
-            var logger = context.Logger;
-
             // Add the new spec to the dg file and fill in the rest.
             var dgFile = await GetSolutionRestoreSpec(solutionManager, context);
 
@@ -291,8 +296,12 @@ namespace NuGet.PackageManagement
                         packageSpec.RestoreMetadata.ProjectStyle == ProjectStyle.DotnetCliTool ||
                         packageSpec.RestoreMetadata.ProjectStyle == ProjectStyle.Standalone) // Don't add global tools to restore specs for solutions
                     {
-                        dgSpec.AddRestore(packageSpec.RestoreMetadata.ProjectUniqueName);
-
+                        // By here, everything should be build integrated.
+                        if (await (projects[i] as BuildIntegratedNuGetProject).NeedsRestore())
+                        {
+                            // TODO NK - Ensure updates are propagated to the parents.
+                            dgSpec.AddRestore(packageSpec.RestoreMetadata.ProjectUniqueName);
+                        }
                         var projFileName = Path.GetFileName(packageSpec.RestoreMetadata.ProjectPath);
                         var dgFileName = DependencyGraphSpec.GetDGSpecFileName(projFileName);
                         var outputPath = packageSpec.RestoreMetadata.OutputPath;

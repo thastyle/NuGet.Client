@@ -11,6 +11,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+
 using NuGet.Commands;
 using NuGet.Common;
 using NuGet.Configuration;
@@ -384,6 +385,16 @@ namespace NuGet.ProjectManagement.Projects
         public override Task<string> GetCacheFilePathAsync()
         {
             return Task.FromResult((string)null);
+        }
+
+        public override Task<bool> NeedsRestore()
+        {
+            return Task.FromResult(true);
+        }
+
+        public override Task ReportRestoreStatusAsync(bool status)
+        {
+            return Task.CompletedTask;
         }
     }
 }

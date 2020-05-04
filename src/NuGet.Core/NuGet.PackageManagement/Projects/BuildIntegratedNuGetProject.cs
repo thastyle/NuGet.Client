@@ -8,6 +8,8 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
+using NuGet.Commands;
 using NuGet.LibraryModel;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
@@ -78,5 +80,9 @@ namespace NuGet.ProjectManagement.Projects
         {
             throw new NotImplementedException("This API should not be called for BuildIntegratedNuGetProject.");
         }
+
+        public abstract Task<bool> NeedsRestore();
+
+        public abstract Task ReportRestoreStatusAsync(bool status);
     }
 }
