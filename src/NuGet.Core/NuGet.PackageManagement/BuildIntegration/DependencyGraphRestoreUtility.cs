@@ -296,12 +296,7 @@ namespace NuGet.PackageManagement
                         packageSpec.RestoreMetadata.ProjectStyle == ProjectStyle.DotnetCliTool ||
                         packageSpec.RestoreMetadata.ProjectStyle == ProjectStyle.Standalone) // Don't add global tools to restore specs for solutions
                     {
-                        // By here, everything should be build integrated.
-                        if (await (projects[i] as BuildIntegratedNuGetProject).NeedsRestore())
-                        {
-                            // TODO NK - Ensure updates are propagated to the parents.
-                            dgSpec.AddRestore(packageSpec.RestoreMetadata.ProjectUniqueName);
-                        }
+                        dgSpec.AddRestore(packageSpec.RestoreMetadata.ProjectUniqueName);
                         var projFileName = Path.GetFileName(packageSpec.RestoreMetadata.ProjectPath);
                         var dgFileName = DependencyGraphSpec.GetDGSpecFileName(projFileName);
                         var outputPath = packageSpec.RestoreMetadata.OutputPath;

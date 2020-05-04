@@ -105,9 +105,14 @@ namespace NuGet.PackageManagement.VisualStudio
                 }
             }
 
-            return Task.FromResult(Path.Combine(
-                packageSpec.RestoreMetadata.OutputPath,
-                LockFileFormat.AssetsFileName));
+            return Task.FromResult(GetAssetsFilePath(packageSpec.RestoreMetadata.OutputPath));
+        }
+
+        private static string GetAssetsFilePath(string outputPath)
+        {
+            return Path.Combine(
+                outputPath,
+                LockFileFormat.AssetsFileName);
         }
 
         private PackageSpec GetPackageSpec()
@@ -370,32 +375,104 @@ namespace NuGet.PackageManagement.VisualStudio
             return Task.FromResult(NoOpRestoreUtilities.GetProjectCacheFilePath(cacheRoot: spec.RestoreMetadata.OutputPath));
         }
 
-        private WeakReference<DependencyGraphSpec> _weakReference;
+        private WeakReference<DependencyGraphSpec> _lastUsedProjectRestoreInfo;
+        private DateTime _lastAssetsFileWriteTime;
+        private DateTime _lastTargetsFileWriteTime;
+        private DateTime _lastPropsFileWriteTime;
+        private DateTime _lastLockFileWriteTime;
+        // if (PackagesLockFileUtilities.IsNuGetLockFileEnabled(request.Project))
+        // var packageLockFilePath = PackagesLockFileUtilities.GetNuGetLockFilePath(request.Project);
 
         public override Task<bool> NeedsRestore()
         {
-            // If the settings were updated. We need restore. => assume they haven't.
-            // If restore is explicit, we need restore. => handle it somewhere differently.
+            // If the settings were updated. We need restore. => assume they haven't for now.
+            bool IsUpToDate = true;
+
+            // Check the last package spec.
             _projectSystemCache.TryGetProjectRestoreInfo(_projectFullPath, out DependencyGraphSpec projectRestoreInfo, out _);
-            bool needsRestore = true;
             DependencyGraphSpec currentWeakReference = null;
-            if (_weakReference?.TryGetTarget(out currentWeakReference) ?? false)
+            if (_lastUsedProjectRestoreInfo?.TryGetTarget(out currentWeakReference) ?? false)
             {
                 if (currentWeakReference != null)
                 {
-                    needsRestore = !currentWeakReference.Equals(projectRestoreInfo);
+                    IsUpToDate &= currentWeakReference.Equals(projectRestoreInfo);
                 }
             }
-            _weakReference = new WeakReference<DependencyGraphSpec>(projectRestoreInfo);
+            // Register the new dependency graph spec to be used.
+            _lastUsedProjectRestoreInfo = new WeakReference<DependencyGraphSpec>(projectRestoreInfo);
 
-            return Task.FromResult(needsRestore);
+            // Check the restore outputs on disk, ensure that they have not been changed since the last completed restore.
+            var packageSpec = projectRestoreInfo.GetProjectSpec(_projectFullPath);
+            GetOutputFilePaths(packageSpec, out string assetsFilePath, out string targetsFilePath, out string propsFilePath, out string lockFilePath);
+
+            IsUpToDate &= AreOutputsUpToDate(assetsFilePath, targetsFilePath, propsFilePath, lockFilePath);
+
+            // Always restore if the last status is a failure.
+            if (!_lastRestoreStatus)
+            {
+                IsUpToDate = false;
+            }
+
+            return Task.FromResult(!IsUpToDate);
+        }
+
+        private static void GetOutputFilePaths(PackageSpec packageSpec, out string assetsFilePath, out string targetsFilePath, out string propsFilePath, out string lockFilePath)
+        {
+            assetsFilePath = GetAssetsFilePath(packageSpec.RestoreMetadata.OutputPath);
+            targetsFilePath = BuildAssetsUtils.GetMSBuildFilePathForPackageReferenceStyleProject(packageSpec, BuildAssetsUtils.TargetsExtension);
+            propsFilePath = BuildAssetsUtils.GetMSBuildFilePathForPackageReferenceStyleProject(packageSpec, BuildAssetsUtils.PropsExtension);
+            lockFilePath = null; // fix the lock files later.
         }
 
         public override Task ReportRestoreStatusAsync(bool status)
         {
-            // Whenever NeedsRestore gets called, we assume that this call will be under a lock.
-            // We need to be able to handle cancellations here.
+            _lastRestoreStatus = status;
+
+            // If we can't get the project restore info, something must've changed, we just set the "last status to false in that case"
+            if (_lastUsedProjectRestoreInfo.TryGetTarget(out DependencyGraphSpec dependencyGraphSpec))
+            {
+                var packageSpec = dependencyGraphSpec.GetProjectSpec(_projectFullPath);
+                GetOutputFilePaths(packageSpec, out string assetsFilePath, out string targetsFilePath, out string propsFilePath, out string lockFilePath);
+
+                _lastAssetsFileWriteTime = GetLastWriteTime(assetsFilePath);
+                _lastTargetsFileWriteTime = GetLastWriteTime(targetsFilePath);
+                _lastPropsFileWriteTime = GetLastWriteTime(propsFilePath);
+                _lastLockFileWriteTime = GetLastWriteTime(lockFilePath);
+            }
+            else
+            {
+                _lastRestoreStatus = true;
+            }
+
             return Task.CompletedTask;
+        }
+
+        private bool _lastRestoreStatus;
+
+        private bool AreOutputsUpToDate(string assetsFilePath, string targetsFilePath, string propsFilePath, string lockFilePath)
+        {
+            DateTime currentAssetsFileWriteTime = GetLastWriteTime(assetsFilePath);
+            DateTime currentTargetsFilePath = GetLastWriteTime(targetsFilePath);
+            DateTime currentPropsFilePath = GetLastWriteTime(propsFilePath);
+            DateTime currentLockFilePath = GetLastWriteTime(lockFilePath);
+
+            return _lastAssetsFileWriteTime.Equals(currentAssetsFileWriteTime) &&
+                   _lastTargetsFileWriteTime.Equals(currentTargetsFilePath) &&
+                   _lastPropsFileWriteTime.Equals(currentPropsFilePath) &&
+                   _lastLockFileWriteTime.Equals(currentLockFilePath);
+        }
+
+        private static DateTime GetLastWriteTime(string assetsFilePath)
+        {
+            if (!string.IsNullOrWhiteSpace(assetsFilePath))
+            {
+                var fileInfo = new FileInfo(assetsFilePath);
+                if (fileInfo.Exists)
+                {
+                    return fileInfo.LastWriteTimeUtc;
+                }
+            }
+            return default;
         }
 
         #endregion

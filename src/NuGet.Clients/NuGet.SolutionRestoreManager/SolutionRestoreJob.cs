@@ -325,14 +325,22 @@ namespace NuGet.SolutionRestoreManager
 
                 bool useOptimization = restoreSource == RestoreOperationSource.Implicit || (restoreSource == RestoreOperationSource.OnBuild && !forceRestore);
                 // Get full dg spec
-                // The problem really is "restore".
-                // We should focus on the restore operation, and we get that here.
                 // IF we want to stay out of restore, we can just keep a weakreference to the packagespec.
                 // We need to build a reverse topological graph and then check the output paths.
                 // Projects that failed the last restore need to get past the optimization too. A source change could affect them.
-                var (dgSpec, additionalMessages) = await DependencyGraphRestoreUtility.GetSolutionRestoreSpecAndAdditionalMessages(_solutionManager, cacheContext);
+                var (originalDgSpec, additionalMessages) = await DependencyGraphRestoreUtility.GetSolutionRestoreSpecAndAdditionalMessages(_solutionManager, cacheContext);
                 intervalTracker.EndIntervalMeasure(RestoreTelemetryEvent.SolutionDependencyGraphSpecCreation);
                 intervalTracker.StartIntervalMeasure();
+
+                var dgSpec = originalDgSpec.WithoutRestores();
+                foreach(var projectPath in originalDgSpec.Restore)
+                {
+                    var nuGetProject = await _solutionManager.GetNuGetProjectAsync(projectPath) as BuildIntegratedNuGetProject;
+                    if(await nuGetProject.NeedsRestore())
+                    {
+                        dgSpec.AddRestore(projectPath);
+                    }
+                }
 
                 // Avoid restoring solutions with zero potential PackageReference projects.
                 if (DependencyGraphRestoreUtility.IsRestoreRequired(dgSpec))
