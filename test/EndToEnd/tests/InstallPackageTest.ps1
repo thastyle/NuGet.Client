@@ -856,6 +856,7 @@ function Test-SimpleBindingRedirectsIndirectReference {
 }
 
 function Test-SimpleBindingRedirectsNonWeb {
+    [SkipTest('test')]
     param(
         $context
     )
