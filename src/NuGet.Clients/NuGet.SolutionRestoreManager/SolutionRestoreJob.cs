@@ -24,7 +24,9 @@ using NuGet.PackageManagement.VisualStudio;
 using NuGet.Packaging.Signing;
 using NuGet.ProjectManagement;
 using NuGet.ProjectManagement.Projects;
+using NuGet.ProjectModel;
 using NuGet.Protocol.Core.Types;
+using NuGet.Shared;
 using NuGet.VisualStudio;
 using NuGet.VisualStudio.Telemetry;
 using Task = System.Threading.Tasks.Task;
@@ -45,6 +47,7 @@ namespace NuGet.SolutionRestoreManager
         private readonly ISourceRepositoryProvider _sourceRepositoryProvider;
         private readonly ISettings _settings;
         private readonly IRestoreEventsPublisher _restoreEventsPublisher;
+        private readonly ISolutionRestoreChecker _solutionUpToDateChecker;
 
         private RestoreOperationLogger _logger;
         private INuGetProjectContext _nuGetProjectContext;
@@ -53,6 +56,7 @@ namespace NuGet.SolutionRestoreManager
         private NuGetOperationStatus _status;
         private int _packageCount;
         private int _noOpProjectsCount;
+        private int _upToDateProjectCount;
 
         // relevant to packages.config restore only
         private int _missingPackagesCount;
@@ -64,13 +68,15 @@ namespace NuGet.SolutionRestoreManager
             IVsSolutionManager solutionManager,
             ISourceRepositoryProvider sourceRepositoryProvider,
             IRestoreEventsPublisher restoreEventsPublisher,
-            ISettings settings)
+            ISettings settings,
+            ISolutionRestoreChecker solutionRestoreChecker)
             : this(AsyncServiceProvider.GlobalProvider,
                   packageRestoreManager,
                   solutionManager,
                   sourceRepositoryProvider,
                   restoreEventsPublisher,
-                  settings
+                  settings,
+                  solutionRestoreChecker
                 )
         { }
 
@@ -80,7 +86,8 @@ namespace NuGet.SolutionRestoreManager
             IVsSolutionManager solutionManager,
             ISourceRepositoryProvider sourceRepositoryProvider,
             IRestoreEventsPublisher restoreEventsPublisher,
-            ISettings settings)
+            ISettings settings,
+            ISolutionRestoreChecker solutionRestoreChecker)
         {
             Assumes.Present(asyncServiceProvider);
             Assumes.Present(packageRestoreManager);
@@ -88,6 +95,7 @@ namespace NuGet.SolutionRestoreManager
             Assumes.Present(sourceRepositoryProvider);
             Assumes.Present(restoreEventsPublisher);
             Assumes.Present(settings);
+            Assumes.Present(solutionRestoreChecker);
 
             _asyncServiceProvider = asyncServiceProvider;
             _packageRestoreManager = packageRestoreManager;
@@ -96,6 +104,7 @@ namespace NuGet.SolutionRestoreManager
             _restoreEventsPublisher = restoreEventsPublisher;
             _settings = settings;
             _packageRestoreConsent = new PackageRestoreConsent(_settings);
+            _solutionUpToDateChecker = solutionRestoreChecker;
         }
 
         /// <summary>
@@ -146,8 +155,6 @@ namespace NuGet.SolutionRestoreManager
 
             return _status == NuGetOperationStatus.NoOp || _status == NuGetOperationStatus.Succeeded;
         }
-
-
 
         private async Task RestoreAsync(bool forceRestore, RestoreOperationSource restoreSource, CancellationToken token)
         {
@@ -273,6 +280,7 @@ namespace NuGet.SolutionRestoreManager
                 startTime,
                 _status,
                 _packageCount,
+                _upToDateProjectCount,
                 _noOpProjectsCount,
                 DateTimeOffset.Now,
                 duration,
@@ -326,11 +334,39 @@ namespace NuGet.SolutionRestoreManager
                 var pathContext = NuGetPathContext.Create(_settings);
 
                 // Get full dg spec
-                var (dgSpec, additionalMessages) = await DependencyGraphRestoreUtility.GetSolutionRestoreSpecAndAdditionalMessages(_solutionManager, cacheContext);
+                var (originalDgSpec, additionalMessages) = await DependencyGraphRestoreUtility.GetSolutionRestoreSpecAndAdditionalMessages(_solutionManager, cacheContext);
                 intervalTracker.EndIntervalMeasure(RestoreTelemetryEvent.SolutionDependencyGraphSpecCreation);
+
+                intervalTracker.StartIntervalMeasure();
+                // Run solution based up to date check.
+                var projectsNeedingRestore = _solutionUpToDateChecker.PerformUpToDateCheck(originalDgSpec).AsList();
+
+                DependencyGraphSpec dgSpec = originalDgSpec;
+                // Only use the optimization results if the restore is not force.
+                // Still run the optimization check anyways to prep the cache for a potential future non-force optimization
+                if (!forceRestore)
+                {
+                    // Update the dg spec.
+                    dgSpec = originalDgSpec.WithoutRestores();
+                    foreach (var uniqueProjectId in projectsNeedingRestore)
+                    {
+                        dgSpec.AddRestore(uniqueProjectId);
+                    }
+                    // loop through all legacy PackageReference projects. We don't know how to replay their warnings & errors yet.
+                    foreach(var project in (await _solutionManager.GetNuGetProjectsAsync()).Where(e => e is LegacyPackageReferenceProject).Select(e => e as LegacyPackageReferenceProject))
+                    {
+                        dgSpec.AddRestore(project.MSBuildProjectPath);
+                    }
+
+                    // recorded the number of up to date projects
+                    _upToDateProjectCount = originalDgSpec.Restore.Count - projectsNeedingRestore.Count;
+                    _noOpProjectsCount = _upToDateProjectCount;
+                }
+
+                intervalTracker.EndIntervalMeasure(RestoreTelemetryEvent.SolutionUpToDateCheck);
                 intervalTracker.StartIntervalMeasure();
 
-                // Avoid restoring solutions with zero potential PackageReference projects.
+                // Avoid restoring if all the projects are up to date, or the solution does not have build integrated projects.
                 if (DependencyGraphRestoreUtility.IsRestoreRequired(dgSpec))
                 {
                     // NOTE: During restore for build integrated projects,
@@ -366,7 +402,9 @@ namespace NuGet.SolutionRestoreManager
 
                             _packageCount += restoreSummaries.Select(summary => summary.InstallCount).Sum();
                             var isRestoreFailed = restoreSummaries.Any(summary => summary.Success == false);
-                            _noOpProjectsCount = restoreSummaries.Where(summary => summary.NoOpRestore == true).Count();
+                            _noOpProjectsCount += restoreSummaries.Where(summary => summary.NoOpRestore == true).Count();
+
+                            _solutionUpToDateChecker.ReportStatus(restoreSummaries);
 
                             if (isRestoreFailed)
                             {
