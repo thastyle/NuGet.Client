@@ -267,6 +267,7 @@ function ResumeVSInstall {
     $p = Start-Process "$VSInstallerPath" -Wait -PassThru -NoNewWindow -ArgumentList $args
 
     if ($p.ExitCode -ne 0) {
+        Write-Host "Debugging : running Resuming failed. Exit code $($p.ExitCode)."
         if ($p.ExitCode -eq 1)
         {
             Write-Host "VS installer appears to need updating. Updating VS installer."
