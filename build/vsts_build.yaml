@@ -746,7 +746,7 @@ jobs:
     name: DDNuGet-Windows
     demands:
     - DotNetFramework
-    - Agent.Name -equals DDNuGetW001
+    - Agent.Name -equals DDNuGetW002
 
   steps:
   - task: PowerShell@1
@@ -845,7 +845,7 @@ jobs:
     name: DDNuGet-Windows
     demands:
     - DotNetFramework
-    - Agent.Name -equals DDNuGetW001
+    - Agent.Name -equals DDNuGetW002
 
   steps:
   - checkout: self
