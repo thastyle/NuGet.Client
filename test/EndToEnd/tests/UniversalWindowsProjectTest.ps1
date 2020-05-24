@@ -30,5 +30,10 @@ function Test-UwpNativeProjectJsonBuild {
 
     # Assert
     $errorlist = Get-Errors
-    Assert-AreEqual 0 $errorlist.Count
+    Foreach ($errormsg in $errorlist)
+    {
+        $errormsgTrimed = $errormsg.trim()
+        $errormsgs = $errormsgs + " " + $errormsgTrimed 
+    }
+    Assert-AreEqual 0 $errorlist.Count $errormsgs
 }
