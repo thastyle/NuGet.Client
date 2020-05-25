@@ -112,7 +112,7 @@ EndGlobal";
                         xml,
                         "PackageReference",
                         "TestPackage.AuthorSigned",
-                        "net472",
+                        string.Empty,
                         new Dictionary<string, string>(),
                         attributes);
 
@@ -125,19 +125,11 @@ EndGlobal";
             }
         }
 
-        [PlatformFact(Platform.Windows)]
+        [Fact]
         public async Task WithUnSignedPackageAndSignatureValidationModeAsRequired_Fails()
         {
             using (var pathContext = new SimpleTestPathContext())
             {
-                // Set up solution, and project
-                var solution = new SimpleTestSolutionContext(pathContext.SolutionRoot);
-
-                var projectA = SimpleTestProjectContext.CreateNETCore(
-                   "a",
-                   pathContext.SolutionRoot,
-                   NuGetFramework.Parse("net472"));
-
                 //Setup packages and feed
                 var packageX = new SimpleTestPackageContext()
                 {
@@ -155,12 +147,33 @@ EndGlobal";
                     PackageSaveMode.Defaultv3,
                     packageX);
 
-                //add the packe to the project
-                projectA.AddPackageToAllFrameworks(packageX);
-                solution.Projects.Add(projectA);
-                solution.Create(pathContext.SolutionRoot);
-                solution.Save();
-                projectA.Save();
+                // Set up solution, and project
+                var solution = new SimpleTestSolutionContext(pathContext.SolutionRoot);
+
+                var projectName = "ClassLibrary1";
+                var workingDirectory = Path.Combine(pathContext.SolutionRoot, projectName);
+                var projectFile = Path.Combine(workingDirectory, $"{projectName}.csproj");
+
+                _msbuildFixture.CreateDotnetNewProject(pathContext.SolutionRoot, projectName, " classlib");
+
+                using (var stream = File.Open(projectFile, FileMode.Open, FileAccess.ReadWrite))
+                {
+                    var xml = XDocument.Load(stream);
+
+                    //ProjectFileUtils.SetTargetFrameworkForProject(xml, "TargetFrameworks", "net472");
+
+                    var attributes = new Dictionary<string, string>() { { "Version", "1.0.0" } };
+
+                    ProjectFileUtils.AddItem(
+                        xml,
+                        "PackageReference",
+                        packageX.Id,
+                        string.Empty,
+                        new Dictionary<string, string>(),
+                        attributes);
+
+                    ProjectFileUtils.WriteXmlToFile(xml, stream);
+                }
 
                 //set nuget.config properties
                 var doc = new XDocument();
@@ -180,7 +193,7 @@ EndGlobal";
                 var args = $"restore --source \"{pathContext.PackageSource}\" ";
 
                 // Act                
-                var result = _msbuildFixture.RunDotnet(pathContext.SolutionRoot, args, ignoreExitCode: true);
+                var result = _msbuildFixture.RunDotnet(workingDirectory, args, ignoreExitCode: true);
 
                 result.Success.Should().BeFalse();
                 result.ExitCode.Should().Be(1, because: "error text should be displayed as restore failed");
@@ -209,7 +222,7 @@ EndGlobal";
                 {
                     var xml = XDocument.Load(stream);
 
-                    ProjectFileUtils.SetTargetFrameworkForProject(xml, "TargetFrameworks", "net472");
+                    //ProjectFileUtils.SetTargetFrameworkForProject(xml, "TargetFrameworks", "net472");
 
                     var attributes = new Dictionary<string, string>() { { "Version", "1.0.0" } };
 
@@ -217,7 +230,7 @@ EndGlobal";
                         xml,
                         "PackageReference",
                         "TestPackage.AuthorSigned",
-                        "net472",
+                        string.Empty,
                         new Dictionary<string, string>(),
                         attributes);
 
