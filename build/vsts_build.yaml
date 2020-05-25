@@ -746,7 +746,7 @@ jobs:
     name: DDNuGet-Windows
     demands:
     - DotNetFramework
-    - Allow_NuGet_E2E_Tests -equals true
+    - Agent.Name -equals DDNuGetW004
 
   steps:
   - task: PowerShell@1
@@ -845,7 +845,7 @@ jobs:
     name: DDNuGet-Windows
     demands:
     - DotNetFramework
-    - Allow_NuGet_Apex_Tests -equals true
+    - Agent.Name -equals DDNuGetW004
 
   steps:
   - checkout: self
