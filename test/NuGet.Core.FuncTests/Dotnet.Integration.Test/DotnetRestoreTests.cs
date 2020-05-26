@@ -122,6 +122,7 @@ EndGlobal";
             }
         }
 
+#if IS_SIGNING_SUPPORTED
         [Fact]
         public async Task WithUnSignedPackageAndSignatureValidationModeAsRequired_Fails()
         {
@@ -268,6 +269,7 @@ EndGlobal";
                 _msbuildFixture.RestoreProject(workingDirectory, projectName, args);
             }
         }
+#endif //IS_SIGNING_SUPPORTED
 
         [PlatformFact(Platform.Windows)]
         public async Task DotnetRestore_OneLinePerRestore()
