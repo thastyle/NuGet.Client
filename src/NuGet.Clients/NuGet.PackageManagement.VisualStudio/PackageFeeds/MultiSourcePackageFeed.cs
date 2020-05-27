@@ -130,10 +130,10 @@ namespace NuGet.PackageManagement.VisualStudio
                 {
                     await packageSourceTelemetry.SendTelemetryAsync();
                     var protocolDiagnosticTotals = packageSourceTelemetry.GetTotals();
-                    _telemetryService.EmitTelemetryEvent(SourceTelemetry.GetSearchSourceSummaryEvent(
+                    SourceTelemetry.EmitSearchSourceSummaryEvent(
                         searchOperationId,
                         _sourceRepositories.Select(x => x.PackageSource),
-                        protocolDiagnosticTotals));
+                        protocolDiagnosticTotals);
                 }
             }
 

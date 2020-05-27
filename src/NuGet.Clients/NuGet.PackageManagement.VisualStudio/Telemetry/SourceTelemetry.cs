@@ -26,24 +26,24 @@ namespace NuGet.PackageManagement.Telemetry
             YesV3AndV2 = YesV3 | YesV2,
         }
 
-        public static TelemetryEvent GetRestoreSourceSummaryEvent(
+        public static void EmitRestoreSourceSummaryEvent(
             Guid parentId,
             IEnumerable<PackageSource> packageSources,
             PackageSourceTelemetry.Totals protocolDiagnosticTotals)
         {
-            return GetSourceSummaryEvent(
+            EmitSourceSummaryEvent(
                 "RestorePackageSourceSummary",
                 parentId,
                 packageSources,
                 protocolDiagnosticTotals);
         }
 
-        public static TelemetryEvent GetSearchSourceSummaryEvent(
+        public static void EmitSearchSourceSummaryEvent(
             Guid parentId,
             IEnumerable<PackageSource> packageSources,
             PackageSourceTelemetry.Totals protocolDiagnosticTotals)
         {
-            return GetSourceSummaryEvent(
+            EmitSourceSummaryEvent(
                 "SearchPackageSourceSummary",
                 parentId,
                 packageSources,
@@ -53,7 +53,7 @@ namespace NuGet.PackageManagement.Telemetry
         /// <summary>
         /// Create a SourceSummaryEvent event with counts of local vs http and v2 vs v3 feeds.
         /// </summary>
-        private static TelemetryEvent GetSourceSummaryEvent(
+        private static void EmitSourceSummaryEvent(
             string eventName,
             Guid parentId,
             IEnumerable<PackageSource> packageSources,
@@ -119,7 +119,7 @@ namespace NuGet.PackageManagement.Telemetry
                 }
             }
 
-            return new SourceSummaryTelemetryEvent(
+            var telemetryEvent = new SourceSummaryTelemetryEvent(
                 eventName,
                 parentId,
                 local,
@@ -129,6 +129,8 @@ namespace NuGet.PackageManagement.Telemetry
                 vsOfflinePackages,
                 dotnetCuratedFeed,
                 protocolDiagnosticTotals);
+
+            telemetryEvent.Emit();
         }
 
         // NumLocalFeeds(c:\ or \\ or file:///)
