@@ -152,7 +152,7 @@ EndGlobal";
                 var workingDirectory = Path.Combine(pathContext.SolutionRoot, projectName);
                 var projectFile = Path.Combine(workingDirectory, $"{projectName}.csproj");
 
-                _msbuildFixture.CreateDotnetNewProject(pathContext.SolutionRoot, projectName, " classlib");
+                _msbuildFixture.CreateDotnetNewProject(pathContext.SolutionRoot, projectName, "classlib");
 
                 using (var stream = File.Open(projectFile, FileMode.Open, FileAccess.ReadWrite))
                 {
@@ -184,7 +184,7 @@ EndGlobal";
                 signatureValidationMode.Add(new XAttribute(XName.Get("value"), "require"));
                 config.Add(signatureValidationMode);
 
-                File.WriteAllText(pathContext.NuGetConfig, doc.ToString());
+                File.WriteAllText(Path.Combine(workingDirectory, "NuGet.Config"), doc.ToString());
 
                 var args = $"restore --source \"{pathContext.PackageSource}\" ";
 
@@ -212,7 +212,7 @@ EndGlobal";
                 var workingDirectory = Path.Combine(testDirectory, projectName);
                 var projectFile = Path.Combine(workingDirectory, $"{projectName}.csproj");
 
-                _msbuildFixture.CreateDotnetNewProject(testDirectory.Path, projectName, " classlib");
+                _msbuildFixture.CreateDotnetNewProject(testDirectory.Path, projectName, "classlib");
 
                 using (var stream = File.Open(projectFile, FileMode.Open, FileAccess.ReadWrite))
                 {
